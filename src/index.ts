@@ -27,10 +27,12 @@ export default class Client extends EventEmitter {
 			.then(result => result.data);
 	}
 
-	public async watch(appKey: string, profileKey: string) {
-		const data = await this.getProfile(appKey, profileKey);
-		this.emit('change', data);
-		this.poll(appKey, profileKey, data.version);
+	public watch(appKey: string, profileKey: string): Client {
+		this.getProfile(appKey, profileKey).then(data => {
+			this.emit('change', data);
+			this.poll(appKey, profileKey, data.version);
+		});
+		return this;
 	}
 
 	private async poll(appKey: string, profileKey: string, version: number) {

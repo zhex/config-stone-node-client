@@ -4,6 +4,10 @@
   "version": "0.1.0",
   "author": "ZheX <zhex81@gmail.com>",
   "license": "MIT",
+  "scripts": {
+    "build": "rm -rf dist && tsc"
+  },
+  "main": "./dist/index.js",
   "dependencies": {
     "axios": "^0.18.0"
   },
