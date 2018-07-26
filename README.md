@@ -15,11 +15,19 @@ watch the config change
 const Client = require('./dist/index').default;
 
 const client = new Client('http://localhost:3000');
-client
-	.watch('crypto-sentinel', 'default')
-	.on('change', data => {
-		console.log(data);
-	}) ;
+const watcher = client.watch('crypto-sentinel', 'default');
+
+watcher.on('start', data => {
+	console.log(data);
+});
+
+watcher.on('change', data => {
+	console.log(data);
+});
+
+watcher.on('close', () => {
+	console.log('watch closed');
+});
 ```
 
 ### TODO

@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { EventEmitter } from 'events';
+import { Watcher } from './watcher';
 
 export interface IProfileConfig {
 	version: number;
@@ -8,11 +8,11 @@ export interface IProfileConfig {
 	config: any;
 }
 
-export default class Client extends EventEmitter {
+export default class Client {
 	private api: AxiosInstance;
+	private watchers = new Map<string, Watcher>();
 
 	constructor(provider: string) {
-		super();
 		this.api = axios.create({
 			baseURL: provider + '/api',
 		});
@@ -27,22 +27,53 @@ export default class Client extends EventEmitter {
 			.then(result => result.data);
 	}
 
-	public watch(appKey: string, profileKey: string): Client {
+	public watch(appKey: string, profileKey: string): Watcher {
+		const watcher = new Watcher(`${appKey}/${profileKey}`);
+		this.watchers.set(watcher.name, watcher);
 		this.getProfile(appKey, profileKey).then(data => {
-			this.emit('change', data);
+			watcher.emit('start', data);
 			this.poll(appKey, profileKey, data.version);
 		});
-		return this;
+		return watcher;
+	}
+
+	public destroyWatcher(watcher: Watcher) {
+		watcher.destroy();
+		this.watchers.delete(watcher.name);
+	}
+
+	public close() {
+		this.watchers.forEach(watcher => {
+			this.destroyWatcher(watcher);
+		});
 	}
 
 	private async poll(appKey: string, profileKey: string, version: number) {
-		const data = await this.api
-			.get<IProfileConfig>(`/${appKey}/${profileKey}?ver=${version}`)
-			.then(result => result.data);
-		if (data && data.version > version) {
-			version = data.version;
-			this.emit('change', data);
+		const watcher = this.watchers.get(`${appKey}/${profileKey}`);
+		if (!watcher || watcher.closed) {
+			return;
 		}
-		await this.poll(appKey, profileKey, version);
+
+		const source = axios.CancelToken.source();
+		try {
+			const data = await this.api
+				.get<IProfileConfig>(
+					`/${appKey}/${profileKey}?ver=${version}`,
+					{
+						cancelToken: source.token,
+					},
+				)
+				.then(result => result.data);
+			if (data && data.version > version) {
+				version = data.version;
+				watcher.emit('change', data);
+			}
+			watcher.once('close', () => source.cancel('watcher closed'));
+			await this.poll(appKey, profileKey, version);
+		} catch (err) {
+			if (axios.isCancel(err)) {
+				throw err;
+			}
+		}
 	}
 }
