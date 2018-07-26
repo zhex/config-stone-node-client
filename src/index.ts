@@ -64,14 +64,18 @@ export default class Client {
 					},
 				)
 				.then(result => result.data);
-			if (data && data.version > version) {
+			if (data.version > version) {
 				version = data.version;
 				watcher.emit('change', data);
 			}
 			watcher.once('close', () => source.cancel('watcher closed'));
 			await this.poll(appKey, profileKey, version);
 		} catch (err) {
-			if (!axios.isCancel(err)) {
+			if (axios.isCancel(err)) {
+				// do nothing
+			} else if (err.response.status === 304) {
+				await this.poll(appKey, profileKey, version);
+			} else {
 				throw err;
 			}
 		}
