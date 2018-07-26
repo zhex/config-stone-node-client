@@ -71,7 +71,7 @@ export default class Client {
 			watcher.once('close', () => source.cancel('watcher closed'));
 			await this.poll(appKey, profileKey, version);
 		} catch (err) {
-			if (axios.isCancel(err)) {
+			if (!axios.isCancel(err)) {
 				throw err;
 			}
 		}
